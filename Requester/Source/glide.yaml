@@ -1,0 +1,10 @@
+package: github.com/dolittle-platform/k8s_certificate_manager/Requester/Source
+import:
+- package: k8s.io/client-go
+  version: "7.0"
+  subpackages:
+  - rest
+  - tools/clientcmd
+  - kubernetes
+  - util/certificate/csr
+- package: github.com/golang/glog
