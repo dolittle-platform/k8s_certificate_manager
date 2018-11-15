@@ -9,7 +9,7 @@ The certificate requester is a simple Docker image that upon start:
 The typical use for this image, is as an `initContainer` for a K8s Pod, to acquire a certificate that is signed by the K8s cluster Certificate Authority, to be used for authentication among services within the cluster. Such as for a MongoDB replica-set.
 
 The Subject of the requested certificate is configurable through arguments to the container:
-- `--common-name` - single value, defaults to the hostname (usuaylly name of the Pod).
+- `--common-name` - single value, defaults to the hostname (usually name of the Pod).
 - `--serial-number` - single value.
 - `--country` - multiple values allowed (repeat the argument).
 - `--organization` - multiple values.
