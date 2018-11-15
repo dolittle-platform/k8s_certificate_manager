@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: k8s-certificate-requestor-test
+
+spec:
+  restartPolicy: Never
+
+  initContainers:
+    - name: requestor-container
+      image: dolittle/k8s_certificate_manager_requester:latest
+
+      volumeMounts:
+        - name: certdir
+          mountPath: "/etc/ssl/certs/kubernetes/"
+
+  containers:
+    - name: print-output-container
+      image: frapsoft/openssl:latest
+      args: ["x509", "-in", "/etc/ssl/certs/kubernetes/private.crt", "-text"]
+
+      volumeMounts:
+        - name: certdir
+          mountPath: "/etc/ssl/certs/kubernetes/"
+          
+  volumes:
+    - name: certdir
+      emptyDir: {}
