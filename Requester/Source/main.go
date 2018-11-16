@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
+
 	certificates "k8s.io/api/certificates/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	certutil "k8s.io/client-go/util/cert"
@@ -44,6 +46,9 @@ var csrStreetAddress stringArray
 var csrPostalCode stringArray
 
 var csrUsage stringArray
+var csrDNSSan stringArray
+
+var deleteCsrOnCompletion bool
 
 const hostnameDefaultValue = "<hostname>"
 
@@ -64,7 +69,12 @@ func defineAndParseFlags() {
 	flag.Var(&csrStreetAddress, "street-address", "Set the StreetAddress field of the certificate Subject (multiple allowed)")
 	flag.Var(&csrPostalCode, "postal-code", "Set the PostalCode field of the certificate Subject (multiple allowed)")
 
+	// Optional extra data for the certificate
 	flag.Var(&csrUsage, "usage", "Usages to put in the certificate request (multiple allowed)")
+	flag.Var(&csrDNSSan, "dns-san", "DNS Subject Alternative Name to add to the certificate (multiple allowed)")
+
+	// Utilty flags
+	flag.BoolVar(&deleteCsrOnCompletion, "delete-request", true, "Delete the request when a signed certificate has been retrieved")
 
 	// Override the logtostderr to get the output from the rest of the system
 	flag.Set("logtostderr", "true")
@@ -127,6 +137,7 @@ func main() {
 		PostalCode:         csrPostalCode,
 	}
 	hostNames := []string{} // TODO: Add something here for services
+	hostNames = append(hostNames, csrDNSSan...)
 	csrData, err := certutil.MakeCSR(privateKey, &subject, hostNames, nil)
 	if err != nil {
 		glog.Fatalln("Error making CSR:", err)
@@ -168,4 +179,20 @@ func main() {
 	} else {
 		glog.Infoln("Public certificate and private key written to", pathPrivateCert)
 	}
+
+	if deleteCsrOnCompletion {
+		glog.Infoln("Deleting the CSR", request.Name)
+
+		deletePolicy := metav1.DeletePropagationForeground
+		deleteOptions := metav1.DeleteOptions{
+			PropagationPolicy: &deletePolicy,
+		}
+
+		err = csrClient.Delete(request.Name, &deleteOptions)
+		if err != nil {
+			glog.Errorln("Couldn't delete the CSR", request.Name, ", error:", err)
+		}
+	}
+
+	glog.Infoln("Done, bye!")
 }
