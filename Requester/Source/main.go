@@ -1,7 +1,11 @@
 package main
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"flag"
 	"io/ioutil"
 	"os"
@@ -109,19 +113,30 @@ func main() {
 	client := kubernetes.NewForConfigOrDie(config)
 
 	// -- Generate or reuse the private key --
-	privateKeyData, generated, err := certutil.LoadOrGenerateKeyFile(pathPrivateKey)
-	if err != nil {
-		glog.Fatalln("Error generating private key:", err)
+	privateKeyData, err := ioutil.ReadFile(pathPrivateKey)
+	var privateKey interface{}
+	if err == nil {
+		privateKey, err = certutil.ParsePrivateKeyPEM(privateKeyData)
 	}
-	if generated {
-		glog.Infoln("Generated new private key, stored in", pathPrivateKey)
+	if err != nil {
+		glog.Infoln("Private key not found in", pathPrivateKey, ". Generating a new one...")
+
+		newPrivateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		if err != nil {
+			glog.Fatalln("Couldn't generate private key:", err)
+		}
+		newPrivateKeyData := pem.EncodeToMemory(&pem.Block{
+			Type:  certutil.RSAPrivateKeyBlockType,
+			Bytes: x509.MarshalPKCS1PrivateKey(newPrivateKey),
+		})
+		err = certutil.WriteKey(pathPrivateKey, newPrivateKeyData)
+		if err != nil {
+			glog.Fatalln("Couldn't write generated private key to disk:", err)
+		}
+		privateKey = newPrivateKey
+		privateKeyData = newPrivateKeyData
 	} else {
 		glog.Infoln("Reusing previous private key from", pathPrivateKey)
-	}
-
-	privateKey, err := certutil.ParsePrivateKeyPEM(privateKeyData)
-	if err != nil {
-		glog.Fatalln("Error parsing private key:", err)
 	}
 
 	// -- Make the Certificate Signing Request --
